@@ -32,7 +32,6 @@
 
 package axon.mem
 
-import axon.Util
 import axon.util.Counter
 import chisel3._
 import chisel3.util._
@@ -73,43 +72,64 @@ class DDR(config: DDRConfig) extends Module {
   })
 
   object State {
-    val idle :: readWait :: writeWait :: Nil = Enum(3)
+    val idle :: latch :: burstWait :: Nil = Enum(3)
   }
 
-  // Registers
-  val stateReg = RegInit(State.idle)
-  val burstLength = Util.latch(io.mem.burstLength, stateReg === State.idle, stateReg === State.idle)
+  // State register
+  val nextState = Wire(UInt())
+  val stateReg = RegNext(nextState, State.idle)
 
-  // Read/write control signals
-  val read = stateReg === State.idle && io.mem.rd && !io.ddr.waitReq
-  val write = stateReg === State.idle && io.mem.wr && !io.ddr.waitReq
+  // Request register
+  val request = BurstMemRequest(io.mem.rd, io.mem.wr, io.mem.addr, io.mem.din, io.mem.burstLength)
+  val requestReg = RegEnable(request, nextState === State.latch)
 
-  // Burst counter enable flag
+  // Control signals
+  val read = stateReg === State.latch && requestReg.rd
+  val write = (stateReg === State.latch && requestReg.wr) || (stateReg === State.burstWait && requestReg.wr)
+  val effectiveRead = requestReg.rd && io.ddr.valid
+  val effectiveWrite = requestReg.wr && !io.ddr.waitReq
   val burstCounterEnable =
-    write ||
-    (stateReg === State.writeWait && !io.ddr.waitReq) ||
-    (stateReg === State.readWait && io.ddr.valid)
+    (stateReg === State.latch && effectiveWrite) ||
+    (stateReg === State.burstWait && (effectiveRead || effectiveWrite))
 
   // Burst counter
-  val (burstCounter, burstCounterDone) = Counter.dynamic(burstLength, burstCounterEnable)
+  val (burstCounter, burstCounterWrap) = Counter.dynamic(requestReg.burstLength, burstCounterEnable)
+
+  // Default to the previous state
+  nextState := stateReg
 
   // FSM
-  stateReg := MuxCase(stateReg, Seq(
-    burstCounterDone -> State.idle,
-    read -> State.readWait,
-    write -> State.writeWait
-  ))
+  switch(stateReg) {
+    // Wait for a request
+    is(State.idle) {
+      when(request.valid) { nextState := State.latch }
+    }
+
+    // Latch request
+    is(State.latch) {
+      when(burstCounterWrap) {
+        nextState := State.idle
+      }.elsewhen(requestReg.valid && !io.ddr.waitReq) {
+        nextState := State.burstWait
+      }
+    }
+
+    // Wait for burst
+    is(State.burstWait) {
+      when(burstCounterWrap) { nextState := State.idle }
+    }
+  }
 
   // Connect I/O ports
   io.mem <> io.ddr
 
   // Outputs
-  io.mem.burstDone := burstCounterDone
-  io.ddr.burstLength := burstLength
-  io.ddr.addr := io.mem.addr +& config.offset.U
-  io.ddr.rd := io.mem.rd && stateReg =/= State.readWait
-  io.ddr.wr := io.mem.wr || stateReg === State.writeWait
+  io.mem.burstDone := burstCounterWrap
+  io.ddr.rd := read
+  io.ddr.wr := write
+  io.ddr.addr := requestReg.addr +& config.offset.U
+  io.ddr.burstLength := requestReg.burstLength
   io.debug.burstCounter := burstCounter
 
-  printf(p"DDR(state: $stateReg, counter: $burstCounter ($burstCounterDone)\n")
+  printf(p"DDR(state: $stateReg, counter: $burstCounter ($burstCounterWrap)\n")
 }

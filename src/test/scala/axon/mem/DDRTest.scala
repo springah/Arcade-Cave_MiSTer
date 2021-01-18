@@ -48,16 +48,17 @@ class DDRTest extends FlatSpec with ChiselScalatestTester with Matchers with DDR
   it should "read from DDR memory (burst=1)" in {
     test(mkDDR()) { dut =>
       // Request
-      dut.io.mem.burstLength.poke(1.U)
       dut.io.mem.rd.poke(true.B)
       dut.io.mem.addr.poke(1.U)
+      dut.io.mem.burstLength.poke(1.U)
+      dut.clock.step()
+      dut.io.mem.rd.poke(false.B)
       dut.io.ddr.rd.expect(true.B)
       dut.io.ddr.addr.expect(1.U)
       dut.clock.step()
       dut.io.ddr.rd.expect(false.B)
 
       // Data
-      dut.io.mem.rd.poke(false.B)
       dut.io.ddr.valid.poke(true.B)
       dut.io.ddr.dout.poke(0x1234.U)
       dut.io.mem.burstDone.expect(true.B)
@@ -66,24 +67,25 @@ class DDRTest extends FlatSpec with ChiselScalatestTester with Matchers with DDR
       dut.clock.step()
 
       // Done
+      dut.io.ddr.rd.expect(false.B)
       dut.io.mem.burstDone.expect(false.B)
-      dut.io.mem.rd.expect(false.B)
     }
   }
 
   it should "read from DDR memory (burst=2)" in {
     test(mkDDR()) { dut =>
       // Request
-      dut.io.mem.burstLength.poke(2.U)
       dut.io.mem.rd.poke(true.B)
       dut.io.mem.addr.poke(1.U)
+      dut.io.mem.burstLength.poke(2.U)
+      dut.clock.step()
+      dut.io.mem.rd.poke(false.B)
       dut.io.ddr.rd.expect(true.B)
       dut.io.ddr.addr.expect(1.U)
       dut.clock.step()
       dut.io.ddr.rd.expect(false.B)
 
       // Data
-      dut.io.mem.rd.poke(false.B)
       dut.io.ddr.valid.poke(true.B)
       dut.io.ddr.dout.poke(0x1234.U)
       dut.io.mem.valid.expect(true.B)
@@ -96,29 +98,30 @@ class DDRTest extends FlatSpec with ChiselScalatestTester with Matchers with DDR
       dut.clock.step()
 
       // Done
+      dut.io.ddr.rd.expect(false.B)
       dut.io.mem.burstDone.expect(false.B)
-      dut.io.mem.rd.expect(false.B)
     }
   }
 
   it should "latch the burst length" in {
     test(mkDDR()) { dut =>
-      dut.io.mem.burstLength.poke(2.U)
       dut.io.mem.rd.poke(true.B)
+      dut.io.mem.burstLength.poke(2.U)
+      dut.clock.step()
       dut.io.ddr.burstLength.expect(2.U)
       dut.clock.step()
       dut.io.mem.burstLength.poke(1.U)
       dut.io.ddr.valid.poke(true.B)
       dut.io.ddr.burstLength.expect(2.U)
-      dut.clock.step(2)
+      dut.clock.step(3)
       dut.io.ddr.burstLength.expect(1.U)
     }
   }
 
   it should "hold the burst counter when the wait signal is asserted" in {
     test(mkDDR()) { dut =>
-      dut.io.mem.burstLength.poke(2.U)
       dut.io.mem.rd.poke(true.B)
+      dut.io.mem.burstLength.poke(2.U)
       dut.io.ddr.waitReq.poke(true.B)
       dut.io.debug.burstCounter.expect(0.U)
       dut.clock.step()
@@ -139,36 +142,38 @@ class DDRTest extends FlatSpec with ChiselScalatestTester with Matchers with DDR
   it should "write to DDR memory (burst=1)" in {
     test(mkDDR()) { dut =>
       // Request
-      dut.io.mem.burstLength.poke(1.U)
       dut.io.mem.wr.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       dut.io.mem.din.poke(0x1234.U)
+      dut.io.mem.burstLength.poke(1.U)
+      dut.clock.step()
+      dut.io.mem.wr.poke(false.B)
       dut.io.ddr.wr.expect(true.B)
       dut.io.ddr.addr.expect(1.U)
       dut.io.ddr.din.expect(0x1234.U)
       dut.clock.step()
-      dut.io.mem.wr.poke(false.B)
 
       // Done
-      dut.io.mem.burstDone.expect(false.B)
       dut.io.ddr.wr.expect(false.B)
+      dut.io.mem.burstDone.expect(false.B)
     }
   }
 
   it should "write to DDR memory (burst=2)" in {
     test(mkDDR()) { dut =>
       // Request
-      dut.io.mem.burstLength.poke(2.U)
       dut.io.mem.wr.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       dut.io.mem.din.poke(0x1234.U)
+      dut.io.mem.burstLength.poke(2.U)
+      dut.clock.step()
+      dut.io.mem.wr.poke(false.B)
       dut.io.ddr.wr.expect(true.B)
       dut.io.ddr.addr.expect(1.U)
       dut.io.ddr.din.expect(0x1234.U)
       dut.clock.step()
 
       // Data
-      dut.io.mem.wr.poke(false.B)
       dut.io.mem.din.poke(0x5678.U)
       dut.io.ddr.wr.expect(true.B)
       dut.io.ddr.din.expect(0x5678.U)
@@ -176,28 +181,29 @@ class DDRTest extends FlatSpec with ChiselScalatestTester with Matchers with DDR
       dut.clock.step()
 
       // Done
-      dut.io.mem.burstDone.expect(false.B)
       dut.io.ddr.wr.expect(false.B)
+      dut.io.mem.burstDone.expect(false.B)
     }
   }
 
   it should "latch the burst length" in {
     test(mkDDR()) { dut =>
-      dut.io.mem.burstLength.poke(2.U)
       dut.io.mem.wr.poke(true.B)
+      dut.io.mem.burstLength.poke(2.U)
+      dut.clock.step()
       dut.io.ddr.burstLength.expect(2.U)
       dut.clock.step()
       dut.io.mem.burstLength.poke(1.U)
       dut.io.ddr.burstLength.expect(2.U)
-      dut.clock.step(2)
+      dut.clock.step(3)
       dut.io.ddr.burstLength.expect(1.U)
     }
   }
 
   it should "hold the burst counter when the wait signal is asserted" in {
     test(mkDDR()) { dut =>
-      dut.io.mem.burstLength.poke(2.U)
       dut.io.mem.wr.poke(true.B)
+      dut.io.mem.burstLength.poke(2.U)
       dut.io.ddr.waitReq.poke(true.B)
       dut.io.debug.burstCounter.expect(0.U)
       dut.clock.step()
