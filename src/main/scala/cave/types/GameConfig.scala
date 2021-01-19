@@ -57,6 +57,12 @@ class GameConfig extends Bundle {
   val numLayers = UInt(2.W)
   /** Asserted when zoomed sprites are enabled */
   val spriteZoom = Bool()
+  /** Layer 0 tile format */
+  val layer0TileFormat = UInt(2.W)
+  /** Layer 1 tile format */
+  val layer1TileFormat = UInt(2.W)
+  /** Layer 2 tile format */
+  val layer2TileFormat = UInt(2.W)
 }
 
 object GameConfig {
@@ -66,6 +72,11 @@ object GameConfig {
   val DANGUN_FEVERON = 1
   /** ESP Ra.De. */
   val ESPRADE = 2
+
+  /** 8x8x4 tile format */
+  val TILE_FORMAT_8x8x4 = 0
+  /** 8x8x8 tile format */
+  val TILE_FORMAT_8x8x8 = 1
 
   def apply() = new GameConfig
 
@@ -93,6 +104,9 @@ object GameConfig {
     wire.numColors := 256.U
     wire.numLayers := 3.U
     wire.spriteZoom := false.B
+    wire.layer0TileFormat := TILE_FORMAT_8x8x4.U
+    wire.layer1TileFormat := TILE_FORMAT_8x8x4.U
+    wire.layer2TileFormat := TILE_FORMAT_8x8x8.U
     wire
   }
 
@@ -108,6 +122,9 @@ object GameConfig {
     wire.numColors := 16.U
     wire.numLayers := 2.U
     wire.spriteZoom := true.B
+    wire.layer0TileFormat := TILE_FORMAT_8x8x4.U
+    wire.layer1TileFormat := TILE_FORMAT_8x8x4.U
+    wire.layer2TileFormat := TILE_FORMAT_8x8x4.U
     wire
   }
 
@@ -123,6 +140,9 @@ object GameConfig {
     wire.numColors := 256.U
     wire.numLayers := 3.U
     wire.spriteZoom := true.B
+    wire.layer0TileFormat := TILE_FORMAT_8x8x8.U
+    wire.layer1TileFormat := TILE_FORMAT_8x8x8.U
+    wire.layer2TileFormat := TILE_FORMAT_8x8x8.U
     wire
   }
 }
